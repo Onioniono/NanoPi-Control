@@ -1,0 +1,28 @@
+# Generated Telemetry Data
+/data/*.csv
+
+# Generated Graphs
+graphs/*.png
+graphs/*.jpg
+graphs/*pdf
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# WireGuard Private Keys
+*.key
+
+# Temporary Files
+*.tmp
+
+# IDE Settings
+.vscode/
+.idea/
+
+# Files
+scripts/OpenNanoPiSSH-LAN.bat
+scripts/OpenNanoPiSSH-VPN.bat
