@@ -14,7 +14,9 @@ DATA_DIR = BASE_DIR / "data"
 GRAPH_DIR = BASE_DIR / "graphs"
 TOOLS_DIR = BASE_DIR / "tools"
 
-CSV_PATH = DATA_DIR / "baseline.csv"
+EXPERIMENT_NAME = "metrics"
+RUN_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+CSV_PATH = DATA_DIR / f"{EXPERIMENT_NAME}_{RUN_TIMESTAMP}.csv"
 
 SAMPLE_INTERVAL = 5 # seconds
 TOTAL_DURATION = 60 # seconds
