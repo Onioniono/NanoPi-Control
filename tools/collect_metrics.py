@@ -32,16 +32,28 @@ def run_ssh(command):
 
 #### Collect Metrics #####################################
 def collect_metrics():
+    command = """
+cat /proc/loadavg
+free -m
+df -h /
+cat /sys/class/thermal/thermal_zone0/temp
+cat /sys/class/net/lan1/statistics/rx_bytes
+cat /sys/class/net/lan1/statistics/tx_bytes
+cat /sys/class/net/wg0/statistics/rx_bytes
+cat /sys/class/net/wg0/statistics/tx_bytes
+"""
+    output = run_ssh(command)
+    lines = output.splitlines()
     return {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "loadavg": run_ssh("cat /proc/loadavg"),
-        "memory": run_ssh("free -m"),
-        "disk": run_ssh("df -h /"),
-        "temp": run_ssh("cat /sys/class/thermal/thermal_zone0/temp"),
-        "lan1_rx": run_ssh("cat /sys/class/net/lan1/statistics/rx_bytes"),
-        "lan1_tx": run_ssh("cat /sys/class/net/lan1/statistics/tx_bytes"),
-        "wg0_rx": run_ssh("cat /sys/class/net/wg0/statistics/rx_bytes"),
-        "wg0_tx": run_ssh("cat /sys/class/net/wg0/statistics/tx_bytes")
+        "loadavg": lines[0],
+        "memory": "\n".join(lines[1:4]),
+        "disk": "\n".join(lines[4:6]),
+        "temp": lines[6],
+        "lan1_rx": lines[7],
+        "lan1_tx": lines[8],
+        "wg0_rx": lines[9],
+        "wg0_tx": lines[10]
     }
 
 ### Debugging Outputs #####################################
@@ -160,7 +172,12 @@ with open(CSV_PATH, "w", newline="") as csvfile:
     writer.writerow(header)
     # Write data row
     for sample_number in range(SAMPLES):
+        start_time = time.time()
+
         row = create_row() # Collect and parse metrics, then create a row of data
         writer.writerow(row)    # Write the row to the CSV file
         print(f"Collected sample {sample_number + 1}/{SAMPLES}") # Print progress to console
-        time.sleep(SAMPLE_INTERVAL) # Sleep for the specified interval
+
+        elapsed_time = time.time() - start_time
+        sleep_time = max(0, SAMPLE_INTERVAL - elapsed_time)
+        time.sleep(sleep_time)
