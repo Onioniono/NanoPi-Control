@@ -31,16 +31,18 @@ def run_ssh(command):
     return result.stdout.strip()
 
 #### Collect Metrics #####################################
-
-timestamp = datetime.now().isoformat(timespec="seconds")
-loadavg = run_ssh("cat /proc/loadavg")
-memory = run_ssh("free -m")
-disk = run_ssh("df -h /")
-temp = run_ssh("cat /sys/class/thermal/thermal_zone0/temp")
-lan1_rx = run_ssh("cat /sys/class/net/lan1/statistics/rx_bytes")
-lan1_tx = run_ssh("cat /sys/class/net/lan1/statistics/tx_bytes")
-wg0_rx = run_ssh("cat /sys/class/net/wg0/statistics/rx_bytes")
-wg0_tx = run_ssh("cat /sys/class/net/wg0/statistics/tx_bytes")
+def collect_metrics():
+    return {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "loadavg": run_ssh("cat /proc/loadavg"),
+        "memory": run_ssh("free -m"),
+        "disk": run_ssh("df -h /"),
+        "temp": run_ssh("cat /sys/class/thermal/thermal_zone0/temp"),
+        "lan1_rx": run_ssh("cat /sys/class/net/lan1/statistics/rx_bytes"),
+        "lan1_tx": run_ssh("cat /sys/class/net/lan1/statistics/tx_bytes"),
+        "wg0_rx": run_ssh("cat /sys/class/net/wg0/statistics/rx_bytes"),
+        "wg0_tx": run_ssh("cat /sys/class/net/wg0/statistics/tx_bytes")
+    }
 
 ### Debugging Outputs #####################################
 
@@ -51,62 +53,81 @@ wg0_tx = run_ssh("cat /sys/class/net/wg0/statistics/tx_bytes")
 #print(int(temp) / 1000)
 #print(lan1_rx, lan1_tx, wg0_rx, wg0_tx)
 
-### Parse Outputs #####################################
+### Parse Outputs and Functions  #####################################
 # CPU Load: "0.00 0.00 0.00 1/148 2926"
-load_parts = loadavg.split()
-cpu_load_1min = float(load_parts[0])
-cpu_load_5min = float(load_parts[1])
-cpu_load_15min = float(load_parts[2])
+def parse_cpu(loadavg):
+    parts = loadavg.split()
+    return float(parts[0]), float(parts[1]), float(parts[2])
 
 # Memory: output from free -m
-memory_lines = memory.splitlines()
-mem_parts = memory_lines[1].split()
+def parse_memory(memory):
+    memory_lines = memory.splitlines()
+    mem_parts = memory_lines[1].split()
 
-memory_total_mb = int(mem_parts[1])
-memory_used_mb = int(mem_parts[2])
-memory_free_mb = int(mem_parts[3])
-memory_available_mb = int(mem_parts[6])
-memory_used_percent = round((memory_used_mb / memory_total_mb) * 100, 2)
+    memory_total_mb = int(mem_parts[1])
+    memory_used_mb = int(mem_parts[2])
+    memory_free_mb = int(mem_parts[3])
+    memory_available_mb = int(mem_parts[6])
+    memory_used_percent = round((memory_used_mb / memory_total_mb) * 100, 2)
+
+    return memory_total_mb, memory_used_mb, memory_free_mb, memory_available_mb, memory_used_percent
 
 # Temperature: Convert millidegrees to degrees Celsius
-cpu_temp_c = int(temp) / 1000
+def parse_temp(temp):
+    return int(temp) / 1000
 
 # Disk: output from df -h / 
-disk_lines = disk.splitlines()
-disk_parts = disk_lines[1].split()
+def parse_disk(disk):
+    disk_lines = disk.splitlines()
+    disk_parts = disk_lines[1].split()
 
-disk_size = disk_parts[1]
-disk_used = disk_parts[2]
-disk_available = disk_parts[3]
-disk_used_percent = int(disk_parts[4].replace('%', ''))
+    disk_size = disk_parts[1]
+    disk_used = disk_parts[2]
+    disk_available = disk_parts[3]
+    disk_used_percent = int(disk_parts[4].replace('%', ''))
+
+    return disk_size, disk_used, disk_available, disk_used_percent
 
 # Network Counters: in bytes
-lan1_rx_bytes = int(lan1_rx)
-lan1_tx_bytes = int(lan1_tx)
-wg0_rx_bytes = int(wg0_rx)
-wg0_tx_bytes = int(wg0_tx)
+def parse_network(lan1_rx, lan1_tx, wg0_rx, wg0_tx):
+    lan1_rx_bytes = int(lan1_rx)
+    lan1_tx_bytes = int(lan1_tx)
+    wg0_rx_bytes = int(wg0_rx)
+    wg0_tx_bytes = int(wg0_tx)
+    return lan1_rx_bytes, lan1_tx_bytes, wg0_rx_bytes, wg0_tx_bytes
 
-# Create one Row of Metrics Data
-row = [
-    timestamp,
-    cpu_load_1min,
-    cpu_load_5min,
-    cpu_load_15min,
-    memory_total_mb,
-    memory_used_mb,
-    memory_free_mb,
-    memory_available_mb,
-    memory_used_percent,
-    cpu_temp_c,
-    disk_size,
-    disk_used,
-    disk_available,
-    disk_used_percent,
-    lan1_rx_bytes,
-    lan1_tx_bytes,
-    wg0_rx_bytes,
-    wg0_tx_bytes
-]
+# Create Row of Data
+def create_row():
+    metrics = collect_metrics()
+
+    timestamp = metrics["timestamp"]
+    cpu_load_1min, cpu_load_5min, cpu_load_15min = parse_cpu(metrics["loadavg"])
+    memory_total_mb, memory_used_mb, memory_free_mb, memory_available_mb, memory_used_percent = parse_memory(metrics["memory"])
+    cpu_temp_c = parse_temp(metrics["temp"])
+    disk_size, disk_used, disk_available, disk_used_percent = parse_disk(metrics["disk"])
+    lan1_rx_bytes, lan1_tx_bytes, wg0_rx_bytes, wg0_tx_bytes = parse_network(
+        metrics["lan1_rx"], metrics["lan1_tx"], metrics["wg0_rx"], metrics["wg0_tx"])
+    
+    return [
+        timestamp,
+        cpu_load_1min,
+        cpu_load_5min,
+        cpu_load_15min,
+        memory_total_mb,
+        memory_used_mb,
+        memory_free_mb,
+        memory_available_mb,
+        memory_used_percent,
+        cpu_temp_c,
+        disk_size,
+        disk_used,
+        disk_available,
+        disk_used_percent,
+        lan1_rx_bytes,
+        lan1_tx_bytes,
+        wg0_rx_bytes,
+        wg0_tx_bytes
+    ]
 
 # Create header row for CSV file
 header = [
@@ -139,9 +160,7 @@ with open(CSV_PATH, "w", newline="") as csvfile:
     writer.writerow(header)
     # Write data row
     for sample_number in range(SAMPLES):
-        # collect commands
-        # parse outputs
-        # create row
-        writer.writerow(row)
-        print(f"Collected sample {sample_number + 1}/{SAMPLES}")
-        time.sleep(SAMPLE_INTERVAL)
+        row = create_row() # Collect and parse metrics, then create a row of data
+        writer.writerow(row)    # Write the row to the CSV file
+        print(f"Collected sample {sample_number + 1}/{SAMPLES}") # Print progress to console
+        time.sleep(SAMPLE_INTERVAL) # Sleep for the specified interval
