@@ -2,6 +2,7 @@ import subprocess
 import csv
 from datetime import datetime
 from pathlib import Path
+import time
 
 ### Configuration #####################################
 
@@ -14,6 +15,10 @@ GRAPH_DIR = BASE_DIR / "graphs"
 TOOLS_DIR = BASE_DIR / "tools"
 
 CSV_PATH = DATA_DIR / "baseline.csv"
+
+SAMPLE_INTERVAL = 5 # seconds
+TOTAL_DURATION = 60 # seconds
+SAMPLES = TOTAL_DURATION // SAMPLE_INTERVAL
 
 ### Function to run SSH command and return output #####################
 
@@ -39,12 +44,12 @@ wg0_tx = run_ssh("cat /sys/class/net/wg0/statistics/tx_bytes")
 
 ### Debugging Outputs #####################################
 
-print(timestamp)
-print(loadavg)
-print(memory)
-print(disk)
-print(int(temp) / 1000)
-print(lan1_rx, lan1_tx, wg0_rx, wg0_tx)
+#print(timestamp)
+#print(loadavg)
+#print(memory)
+#print(disk)
+#print(int(temp) / 1000)
+#print(lan1_rx, lan1_tx, wg0_rx, wg0_tx)
 
 ### Parse Outputs #####################################
 # CPU Load: "0.00 0.00 0.00 1/148 2926"
@@ -128,8 +133,15 @@ header = [
 
 ### Write metrics to CSV file #########################
 with open(CSV_PATH, "w", newline="") as csvfile:
+    # Create a CSV writer object
     writer = csv.writer(csvfile)
     # Write header
     writer.writerow(header)
     # Write data row
-    writer.writerow(row)
+    for sample_number in range(SAMPLES):
+        # collect commands
+        # parse outputs
+        # create row
+        writer.writerow(row)
+        print(f"Collected sample {sample_number + 1}/{SAMPLES}")
+        time.sleep(SAMPLE_INTERVAL)
