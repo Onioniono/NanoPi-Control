@@ -2,9 +2,9 @@
 /data/*.csv
 
 # Generated Graphs
-graphs/*.png
-graphs/*.jpg
-graphs/*pdf
+/graphs/*.png
+/graphs/*.jpg
+/graphs/*.pdf
 
 # Python Cache
 __pycache__/
@@ -15,6 +15,10 @@ __pycache__/
 
 # WireGuard Private Keys
 *.key
+*.pem
+*.conf
+.env
+secrets/
 
 # Temporary Files
 *.tmp
@@ -23,6 +27,10 @@ __pycache__/
 .vscode/
 .idea/
 
-# Files
+# Winndows / macOS
+Thumbs.db
+.DS_Store
+
+# Privacy
 scripts/OpenNanoPiSSH-LAN.bat
 scripts/OpenNanoPiSSH-VPN.bat
