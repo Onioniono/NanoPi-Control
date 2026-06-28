@@ -3,10 +3,11 @@ import csv
 from datetime import datetime
 from pathlib import Path
 import time
+import os
 
 ### Configuration #####################################
 
-SSH_KEY = r"C:\Users\ajmen\.ssh\nanopi_telemetry"
+SSH_KEY = Path.home() / ".ssh" / "nanopi_telemetry"
 SSH_TARGET = "amend@10.8.0.1"
 
 BASE_DIR = Path(__file__).resolve().parent.parent # from .py to ~/tools to ~/NanoPi-Control
@@ -26,11 +27,16 @@ SAMPLES = TOTAL_DURATION // SAMPLE_INTERVAL
 
 def run_ssh(command):
     result = subprocess.run(
-        ["ssh", "-i", SSH_KEY, SSH_TARGET, command],
+        ["ssh", "-i", SSH_KEY, "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", SSH_TARGET, command],
         capture_output=True,
         text=True
     )
-    return result.stdout.strip()
+
+    if result.returncode != 0:
+        print(f"WARNING: SSH command failed: {result.stderr}")
+        return None
+    else:
+        return result.stdout.strip()
 
 #### Collect Metrics #####################################
 def collect_metrics():
@@ -45,6 +51,19 @@ cat /sys/class/net/wg0/statistics/rx_bytes
 cat /sys/class/net/wg0/statistics/tx_bytes
 """
     output = run_ssh(command)
+    if output is None:
+        return {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "loadavg": None,
+            "memory": None,
+            "disk": None,
+            "temp": None,
+            "lan1_rx": None,
+            "lan1_tx": None,
+            "wg0_rx": None,
+            "wg0_tx": None
+        }
+
     lines = output.splitlines()
     return {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -70,11 +89,17 @@ cat /sys/class/net/wg0/statistics/tx_bytes
 ### Parse Outputs and Functions  #####################################
 # CPU Load: "0.00 0.00 0.00 1/148 2926"
 def parse_cpu(loadavg):
+    if loadavg is None:
+        return None, None, None
+
     parts = loadavg.split()
     return float(parts[0]), float(parts[1]), float(parts[2])
 
 # Memory: output from free -m
 def parse_memory(memory):
+    if memory is None:
+        return None, None, None, None, None
+
     memory_lines = memory.splitlines()
     mem_parts = memory_lines[1].split()
 
@@ -88,10 +113,15 @@ def parse_memory(memory):
 
 # Temperature: Convert millidegrees to degrees Celsius
 def parse_temp(temp):
+    if temp is None:
+        return None
     return int(temp) / 1000
 
 # Disk: output from df -h / 
 def parse_disk(disk):
+    if disk is None:
+        return None, None, None, None
+
     disk_lines = disk.splitlines()
     disk_parts = disk_lines[1].split()
 
@@ -104,10 +134,10 @@ def parse_disk(disk):
 
 # Network Counters: in bytes
 def parse_network(lan1_rx, lan1_tx, wg0_rx, wg0_tx):
-    lan1_rx_bytes = int(lan1_rx)
-    lan1_tx_bytes = int(lan1_tx)
-    wg0_rx_bytes = int(wg0_rx)
-    wg0_tx_bytes = int(wg0_tx)
+    lan1_rx_bytes = int(lan1_rx) if lan1_rx is not None else None
+    lan1_tx_bytes = int(lan1_tx) if lan1_tx is not None else None
+    wg0_rx_bytes = int(wg0_rx) if wg0_rx is not None else None
+    wg0_tx_bytes = int(wg0_tx) if wg0_tx is not None else None
     return lan1_rx_bytes, lan1_tx_bytes, wg0_rx_bytes, wg0_tx_bytes
 
 # Create Row of Data
@@ -124,23 +154,23 @@ def create_row():
     
     return [
         timestamp,
-        cpu_load_1min,
-        cpu_load_5min,
-        cpu_load_15min,
-        memory_total_mb,
-        memory_used_mb,
-        memory_free_mb,
-        memory_available_mb,
-        memory_used_percent,
-        cpu_temp_c,
-        disk_size,
-        disk_used,
-        disk_available,
-        disk_used_percent,
-        lan1_rx_bytes,
-        lan1_tx_bytes,
-        wg0_rx_bytes,
-        wg0_tx_bytes
+        cpu_load_1min if cpu_load_1min is not None else "N/A",
+        cpu_load_5min if cpu_load_5min is not None else "N/A",
+        cpu_load_15min if cpu_load_15min is not None else "N/A",
+        memory_total_mb if memory_total_mb is not None else "N/A",
+        memory_used_mb if memory_used_mb is not None else "N/A",
+        memory_free_mb if memory_free_mb is not None else "N/A",
+        memory_available_mb if memory_available_mb is not None else "N/A",
+        memory_used_percent if memory_used_percent is not None else "N/A",
+        cpu_temp_c if cpu_temp_c is not None else "N/A",
+        disk_size if disk_size is not None else "N/A",
+        disk_used if disk_used is not None else "N/A",
+        disk_available if disk_available is not None else "N/A",
+        disk_used_percent if disk_used_percent is not None else "N/A",
+        lan1_rx_bytes if lan1_rx_bytes is not None else "N/A",
+        lan1_tx_bytes if lan1_tx_bytes is not None else "N/A",
+        wg0_rx_bytes if wg0_rx_bytes is not None else "N/A",
+        wg0_tx_bytes if wg0_tx_bytes is not None else "N/A"
     ]
 
 # Create header row for CSV file
